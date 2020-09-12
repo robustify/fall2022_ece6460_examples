@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- Gazebo simulation -->
+  <include file="$(find dataspeed_dbw_gazebo)/launch/dataspeed_dbw_gazebo.launch" >
+    <arg name="sim_param_file" value="$(find avs_lecture_launch)/yaml/oakland_sim_params.yaml" />
+    <arg name="world_name" value="$(find avs_lecture_gazebo)/worlds/empty_world.world" />
+  </include>
+
+  <!-- Enable drive-by-wire control -->
+  <node pkg="rostopic" type="rostopic" name="enable_dbw" args="pub /vehicle/enable std_msgs/Empty -1" output="screen" />
+
+  <!-- Drive-by-wire system -->
+  <include file="$(find dbw_mkz_can)/launch/dbw.launch" >
+    <arg name="live" value="false"/>
+    <arg name="can_ns" value="can_bus_dbw" />
+    <arg name="load_urdf" value="false" />
+  </include>
+
+</launch>
