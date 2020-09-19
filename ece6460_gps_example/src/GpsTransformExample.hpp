@@ -25,6 +25,9 @@ namespace ece6460_gps_example {
       void recvFix(const gps_common::GPSFixConstPtr& msg);
 
       ros::Subscriber sub_fix;
+
+      double ref_utm_x;
+      double ref_utm_y;
   };
 
 }
