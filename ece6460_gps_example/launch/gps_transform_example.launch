@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+
+  <include file="$(find avs_lecture_launch)/launch/scenarios/sim_map_test_loop.launch" />
+
+  <node pkg="ece6460_gps_example" type="gps_transform_example_node" name="gps_transform_example" output="screen" />
+
+</launch>
