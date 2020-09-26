@@ -1,6 +1,11 @@
 <?xml version="1.0"?>
 <launch>
 
-  <!-- TODO: Run param loader example node here and pass it some parameters -->
+  <!-- Run param loader example node here and pass it some parameters -->
+  <node pkg="ece6460_launch_example" type="param_loader" name="param_loader" output="screen" >
+    <param name="param1" value="2" />
+    <param name="param2" value="10" />
+    <param name="param3" value="this is a parameter" />
+  </node>
 
 </launch>
