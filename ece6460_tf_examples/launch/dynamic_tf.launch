@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+                                                                                 <!-- x y z  Y  P R -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="frame1_to_frame2" args="2 1 0 0.5 0 0 frame1 frame2" />
+
+  <node pkg="ece6460_tf_examples" type="tf_pub_example" name="tf_pub_example" output="screen" />
+
+</launch>
