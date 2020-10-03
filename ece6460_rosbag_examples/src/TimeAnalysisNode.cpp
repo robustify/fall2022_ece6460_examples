@@ -16,7 +16,7 @@ namespace ece6460_rosbag_examples {
 
   void TimeAnalysisNode::timerCallback(const ros::TimerEvent& event)
   {
-    ROS_INFO("Current time stamp in seconds: %f", event.current_real.toSec());
+    ROS_INFO("Current time stamp in seconds: %f\n", event.current_real.toSec());
   }
 
   void TimeAnalysisNode::recvTwist(const geometry_msgs::TwistStampedConstPtr& msg)
@@ -24,6 +24,6 @@ namespace ece6460_rosbag_examples {
     ROS_INFO("Received message with stamp %f", msg->header.stamp.toSec());
 
     ros::Duration message_age = ros::Time::now() - msg->header.stamp;
-    ROS_INFO("Message stamp is %f seconds old", message_age.toSec());
+    ROS_INFO("Message stamp is %f seconds old\n", message_age.toSec());
   }
 }

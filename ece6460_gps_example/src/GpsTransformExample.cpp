@@ -33,6 +33,9 @@ namespace ece6460_gps_example
 
     // TODO: Convert heading from NED to ENU
     double enu_heading = (M_PI / 2) - (M_PI / 180 * msg->track);
+
+    // Zone 1 starts at -180 longitude, ends at -174: central meridian is at -177
+    // Zone 17 ???
     double utm_heading = enu_heading; // TODO: account for convergence angle!
 
     // Construct transform from UTM to the vehicle frame
