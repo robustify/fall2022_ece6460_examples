@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<launch>
+
+  <param name="use_sim_time" value="true" />
+
+  <!-- Run the point cloud processing node -->
+  <node pkg="ece6460_pointcloud_example" type="cluster_example" name="cluster_example" output="screen" >
+    <remap from="points" to="/ouster/points_raw" />
+  </node>
+
+  <!-- Ouster LIDAR driver node -->
+  <include file="$(find avs_lecture_sensor_config)/launch/ouster_driver.launch" >
+    <arg name="replay" value="true" />
+  </include>
+
+  <!-- Open Rviz to visualize the outputs -->
+  <node pkg="rviz" type="rviz" name="example_viz" args="-d $(find ece6460_pointcloud_example)/rviz/example.rviz" />
+
+</launch>
