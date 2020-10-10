@@ -8,7 +8,7 @@ namespace ece6460_pointcloud_example
   {
     srv_.setCallback(boost::bind(&ClusterExample::reconfig, this, _1, _2));
 
-    sub_cloud_ = n.subscribe<sensor_msgs::PointCloud2>("points", 10, &ClusterExample::recvCloud, this);
+    sub_cloud_ = n.subscribe("points", 10, &ClusterExample::recvCloud, this);
     pub_filtered_cloud_ = n.advertise<sensor_msgs::PointCloud2>("filtered_cloud", 10);
     pub_bboxes_ = n.advertise<avs_lecture_msgs::TrackedObjectArray>("objects", 1);
     pub_normals_ = n.advertise<geometry_msgs::PoseArray>("normals", 1);
