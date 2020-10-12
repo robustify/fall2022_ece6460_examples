@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- Run the example program -->
+  <node pkg="ece6460_vector_to_quat" type="vector_to_quat" name="vector_to_quat" output="screen" />
+
+  <!-- Run dynamic reconfigure GUI -->
+  <node pkg="rqt_reconfigure" type="rqt_reconfigure" name="reconfig" />
+
+  <!-- Open Rviz and load configuration -->
+  <node pkg="rviz" type="rviz" name="example_viz" args="-d $(find ece6460_vector_to_quat)/rviz/vector_to_quat.rviz" />
+
+</launch>

@@ -62,21 +62,30 @@ namespace ece6460_pointcloud_example
       double ny = cloud_normals->points[non_vertical_normals.indices[i]].normal_y;
       double nz = cloud_normals->points[non_vertical_normals.indices[i]].normal_z;
 
-      tf2::Quaternion q;
+      // Construct rotation matrix to align frame transform with the normal vector
       tf2::Matrix3x3 rot_mat;
-      if (fabs(nz) > 0.5) {
-        rot_mat[0] = tf2::Vector3(nx, ny, nz);
-        rot_mat[1] = tf2::Vector3(0, -nz, ny);
-        rot_mat[1].normalize();
-        rot_mat[2] = rot_mat[0].cross(rot_mat[1]);
-      } else {
-        rot_mat[0] = tf2::Vector3(nx, ny, nz);
+      rot_mat[0] = tf2::Vector3(nx, ny, nz);
+      if (std::abs(nz) < 0.9) {
+        // Vector is not close to vertical, use x and y components to create orthogonal vector
         rot_mat[1] = tf2::Vector3(-ny, nx, 0);
-        rot_mat[1].normalize();
-        rot_mat[2] = rot_mat[0].cross(rot_mat[1]);
+      } else {
+        // Vector is close to vertical, use y and z components to make orthogonal vector
+        rot_mat[1] = tf2::Vector3(0, -nz, ny);
       }
-      rot_mat.getRotation(q);
-      tf2::convert(q.inverse(), p.orientation);
+      // Normalize the generated orthogonal vector, because it is not necessarily unit length
+      rot_mat[1].normalize();
+      // Cross product produces the third basis vector of the rotation matrix
+      rot_mat[2] = rot_mat[0].cross(rot_mat[1]);
+
+      // Extract equivalent quaternion representation for the transform
+      // rot_mat.transpose() is used because the basis vectors should be loaded
+      // into the columns of the matrix, but the indexing in the above commands set the rows
+      //   of the matrix instead of the columns.
+      tf2::Quaternion q;
+      rot_mat.transpose().getRotation(q);
+
+      // Fill orientation of pose structure
+      tf2::convert(q, p.orientation);
       normals_.poses.push_back(p);
     }
     // Publish normal vectors
