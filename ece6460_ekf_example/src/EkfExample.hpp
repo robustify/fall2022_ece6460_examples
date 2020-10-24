@@ -49,12 +49,12 @@ namespace ece6460_ekf_example {
       tf2::Vector3 ref_utm_vect_;
 
       // Estimate state, covariance, and current time stamp
-      Eigen::Matrix<double, 5, 1> X_;
-      Eigen::Matrix<double, 5, 5> P_;
+      StateVector X_;
+      StateMatrix P_;
       ros::Time estimate_stamp_;
 
       // Process noise covariance
-      Eigen::Matrix<double, 5, 5> Q_;
+      StateMatrix Q_;
   };
 
 }

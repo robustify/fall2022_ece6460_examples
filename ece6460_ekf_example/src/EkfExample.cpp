@@ -70,8 +70,13 @@ StateVector EkfExample::statePrediction(double dt, const StateVector& old_state)
   double speed_est = old_state(3);
   double yaw_rate_est = old_state(4);
 
-  // TODO: Implement state prediction step
-  StateVector new_state = old_state;
+  // Implement state prediction step
+  StateVector new_state;
+  new_state(0) = old_state(0) + dt * speed_est * cos(heading_est);
+  new_state(1) = old_state(1) + dt * speed_est * sin(heading_est);
+  new_state(2) = old_state(2) + dt * yaw_rate_est;
+  new_state(3) = old_state(3);
+  new_state(4) = old_state(4);
   return new_state;
 }
 
@@ -79,16 +84,20 @@ StateMatrix EkfExample::stateJacobian(double dt, const StateVector& state) {
   double heading_est = state(2);
   double speed_est = state(3);
   
-  // TODO: Populate state Jacobian with current state values
+  // Populate state Jacobian with current state values
   StateMatrix A;
-  A.setZero();
+  A.row(0) << 1, 0, -dt * speed_est * sin(heading_est), dt * cos(heading_est), 0;
+  A.row(1) << 0, 1,  dt * speed_est * cos(heading_est), dt * sin(heading_est), 0;
+  A.row(2) << 0, 0, 1, 0, dt;
+  A.row(3) << 0, 0, 0, 1, 0;
+  A.row(4) << 0, 0, 0, 0, 1;
   return A;
 }
 
 StateMatrix EkfExample::covPrediction(const StateMatrix& A, const StateMatrix& Q, const StateMatrix& old_cov) {
-  // TODO: Propagate covariance matrix one step
+  // Propagate covariance matrix one step
   StateMatrix new_cov;
-  new_cov.setZero();
+  new_cov = A * old_cov * A.transpose() + Q;
   return new_cov;
 }
 
@@ -135,19 +144,36 @@ void EkfExample::updateFilterGPS(const ros::Time& current_time, const tf2::Vecto
   StateVector predicted_state = statePrediction(dt, X_);
   StateMatrix predicted_cov = covPrediction(A, Q_, P_);
 
-  // TODO: Construct C matrix for a GPS update (X and Y position measurements)
+  // Construct C matrix for a GPS update (X and Y position measurements)
+  Eigen::Matrix<double, 2, 5> C;
+  C.row(0) << 1, 0, 0, 0, 0;
+  C.row(1) << 0, 1, 0, 0, 0;
 
-  // TODO: Use C and predicted state to compute expected measurement
+  // Use C and predicted state to compute expected measurement
+  Eigen::Matrix<double, 2, 1> expected_meas;
+  expected_meas << predicted_state(0), predicted_state(1);
 
-  // TODO: Put GPS measurements in an Eigen object
+  // Put GPS measurements in an Eigen object
+  Eigen::Matrix<double, 2, 1> real_meas;
+  real_meas << position.x(), position.y();
 
-  // TODO: Construct R matrix for the GPS measurements
+  // Construct R matrix for the GPS measurements
+  Eigen::Matrix<double, 2, 2> R;
+  R.setZero();
+  R(0, 0) = cfg_.r_gps * cfg_.r_gps;
+  R(1, 1) = cfg_.r_gps * cfg_.r_gps;
 
-  // TODO: Compute Kalman gain
+  // Compute Kalman gain
+  Eigen::Matrix<double, 2, 2> S;
+  S = C * predicted_cov * C.transpose() + R;
+  Eigen::Matrix<double, 5, 2> K;
+  K = predicted_cov * C.transpose() * S.inverse();
 
-  // TODO: Update filter estimate based on difference between actual and expected measurements
+  // Update filter estimate based on difference between actual and expected measurements
+  X_ = predicted_state + K * (real_meas - expected_meas);
   
-  // TODO: Update estimate error covariance using Kalman gain matrix
+  // Update estimate error covariance using Kalman gain matrix
+  P_ = (StateMatrix::Identity() - K * C) * predicted_cov;
 
   // If using a measurement from the past (dt < 0), re-propagate filter to the current estimate stamp
   if (dt < 0) {
@@ -185,19 +211,36 @@ void EkfExample::updateFilterTwist(const ros::Time& current_time, const geometry
   StateVector predicted_state = statePrediction(dt, X_);
   StateMatrix predicted_cov = covPrediction(A, Q_, P_);
 
-  // TODO: Construct C matrix for a GPS update (X and Y position measurements)
+  // Construct C matrix for a twist update (speed and yaw rate measurement)
+  Eigen::Matrix<double, 2, 5> C;
+  C.row(0) << 0, 0, 0, 1, 0;
+  C.row(1) << 0, 0, 0, 0, 1;
 
-  // TODO: Use C and predicted state to compute expected measurement
+  // Use C and predicted state to compute expected measurement
+  Eigen::Matrix<double, 2, 1> expected_meas;
+  expected_meas << predicted_state(3), predicted_state(4);
 
-  // TODO: Put GPS measurements in an Eigen object
+  // Put twist measurements in an Eigen object
+  Eigen::Matrix<double, 2, 1> real_meas;
+  real_meas << twist.linear.x, twist.angular.z;
 
-  // TODO: Construct R matrix for the GPS measurements
+  // Construct R matrix for the GPS measurements
+  Eigen::Matrix<double, 2, 2> R;
+  R.setZero();
+  R(0, 0) = cfg_.r_speed * cfg_.r_speed;
+  R(1, 1) = cfg_.r_yaw_rate * cfg_.r_yaw_rate;
 
-  // TODO: Compute Kalman gain
+  // Compute Kalman gain
+  Eigen::Matrix<double, 2, 2> S;
+  S = C * predicted_cov * C.transpose() + R;
+  Eigen::Matrix<double, 5, 2> K;
+  K = predicted_cov * C.transpose() * S.inverse();
 
-  // TODO: Update filter estimate based on difference between actual and expected measurements
+  // Update filter estimate based on difference between actual and expected measurements
+  X_ = predicted_state + K * (real_meas - expected_meas);
   
-  // TODO: Update estimate error covariance using Kalman gain matrix
+  // Update estimate error covariance using Kalman gain matrix
+  P_ = (StateMatrix::Identity() - K * C) * predicted_cov;
 
   // Wrap heading estimate into the range -pi to pi
   if (X_(2) > M_PI) {
