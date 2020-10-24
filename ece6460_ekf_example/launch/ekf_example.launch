@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<launch>
+
+  <node pkg="ece6460_ekf_example" type="ekf_example" name="ekf_example" output="screen" >
+    <remap from="twist" to="/vehicle/twist" />
+    <remap from="fix" to="/vehicle/gps/fix" />
+    <param name="ref_lat" value="42.6707444" />
+    <param name="ref_lon" value="-83.2172277" />
+  </node>
+
+  <!-- Use time stamp from the bag file -->
+  <param name="use_sim_time" value="true" />
+
+  <!-- Dataspeed ROS Driver -->
+  <include file="$(find dbw_mkz_can)/launch/dbw.launch" >
+    <arg name="live" value="false"/>
+  </include>
+
+  <!-- Process RTK GPS data to generate ground truth visualization -->
+  <include file="$(find novatel_gps_eth)/launch/driver.launch" >
+    <arg name="ns"          value="gps" />
+    <arg name="offline"     value="true" />
+  </include>
+  <node pkg="ece6460_ekf_example" type="rtk_gps_path.py" name="rtk_ground_truth" >
+    <param name="ref_lat" value="42.6707444" />
+    <param name="ref_lon" value="-83.2172277" />
+  </node>
+
+  <!-- Rviz to visualize the filter output -->
+  <node pkg="rviz" type="rviz" name="ekf_viz" args="-d $(find ece6460_ekf_example)/rviz/rviz_config.rviz" />
+
+</launch>
