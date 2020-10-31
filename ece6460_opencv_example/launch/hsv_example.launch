@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+
+  <node pkg="ece6460_opencv_example" type="hsv_example_node" name="hsv_example" output="screen" />
+
+  <node pkg="rqt_reconfigure" type="rqt_reconfigure" name="reconfig" />
+  
+</launch>
