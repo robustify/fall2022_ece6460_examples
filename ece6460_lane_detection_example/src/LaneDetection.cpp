@@ -6,7 +6,8 @@ namespace ece6460_lane_detection_example
 {
 
 LaneDetection::LaneDetection(ros::NodeHandle n, ros::NodeHandle pn) :
-  listener_(buffer_)
+  listener_(buffer_),
+  kd_tree_(new pcl::search::KdTree<pcl::PointXYZ>)
 {
   sub_cam_info_ = n.subscribe("camera_info", 1, &LaneDetection::recvCameraInfo, this);
   sub_image_ = n.subscribe("image_rect_color", 1, &LaneDetection::recvImage, this);
@@ -68,12 +69,8 @@ void LaneDetection::recvImage(const sensor_msgs::ImageConstPtr& msg)
       if (bin_img.at<uint8_t>(i, j) == 255) {
         // We found a white pixel corresponding to a lane marking. Project to ground
         // and add to point cloud
-        geometry_msgs::Point proj_p = projectPoint(model, cv::Point(j, i));
-        pcl::PointXYZ p;
-        p.x = proj_p.x;
-        p.y = proj_p.y;
-        p.z = proj_p.z;
-        bin_cloud->points.push_back(p);
+        pcl::PointXYZ proj_p = projectPoint(model, cv::Point(j, i));
+        bin_cloud->points.push_back(proj_p);
       }
     }
   }
@@ -85,10 +82,28 @@ void LaneDetection::recvImage(const sensor_msgs::ImageConstPtr& msg)
   cloud_msg.header.stamp = msg->header.stamp;
   pub_cloud_.publish(cloud_msg);
 
-  // TODO: Use Euclidean clustering to group dashed lines together
+  // Use Euclidean clustering to group dashed lines together
   // and separate each distinct line into separate point clouds
+  std::vector<pcl::PointIndices> cluster_indices;
+  pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
+  ec.setClusterTolerance(cfg_.cluster_tol);
+  ec.setMinClusterSize(cfg_.min_cluster_size);
+  ec.setMaxClusterSize(cfg_.max_cluster_size);
+  kd_tree_->setInputCloud(bin_cloud);
+  ec.setSearchMethod(kd_tree_);
+  ec.setInputCloud(bin_cloud);
+  ec.extract(cluster_indices);
 
+  // Use indices arrays to separate point cloud into individual clouds for each cluster
   std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> cluster_clouds;
+  for (auto indices : cluster_indices) {
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cluster(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::copyPointCloud(*bin_cloud, indices, *cluster);
+    cluster->width = cluster->points.size();
+    cluster->height = 1;
+    cluster->is_dense = true;
+    cluster_clouds.push_back(cluster);
+  }
 
   // Construct polynomial curve fits to each cluster cloud
   std::vector<CurveFit> curves;
@@ -99,8 +114,10 @@ void LaneDetection::recvImage(const sensor_msgs::ImageConstPtr& msg)
       continue;
     }
 
-    // TODO: Check RMS fit error before adding curve fit to the output
-    curves.push_back(new_curve);
+    bool good_fit = checkCurve(cluster_clouds[i], new_curve);
+    if (good_fit) {
+      curves.push_back(new_curve);
+    }
   }
 
   // Construct Rviz marker output to visualize curve fit
@@ -193,18 +210,26 @@ void LaneDetection::detectYellow(const cv::Mat& hue_img, const cv::Mat& sat_img,
 }
 
 // Project 2D pixel point 'p' into vehicle's frame and return as 3D point
-geometry_msgs::Point LaneDetection::projectPoint(const image_geometry::PinholeCameraModel& model, const cv::Point2d& p)
+pcl::PointXYZ LaneDetection::projectPoint(const image_geometry::PinholeCameraModel& model, const cv::Point2d& p)
 {
-  // TODO: Convert the input pixel coordinates into a 3d ray, where x and y are projected to the point where z is equal to 1.0
+  // Convert the input pixel coordinates into a 3d ray, where x and y are projected to the point where z is equal to 1.0
+  cv::Point3d cam_frame_ray = model.projectPixelTo3dRay(p);
   
-  // TODO: Represent camera frame ray in footprint frame
+  // Represent camera frame ray in footprint frame
+  tf2::Vector3 footprint_frame_ray = camera_transform_.getBasis() * tf2::Vector3(cam_frame_ray.x, cam_frame_ray.y, cam_frame_ray.z);
 
-  // TODO: Using the concept of similar triangles, scale the unit vector such that the end is on the ground plane.
+  // Using the concept of similar triangles, scale the unit vector such that the end is on the ground plane.
+  double s = -camera_transform_.getOrigin().z() / footprint_frame_ray.z();
+  tf2::Vector3 ground_plane_ray = s * footprint_frame_ray;
 
-  // TODO: Then add camera position offset to obtain the final coordinates in footprint frame
+  // Then add camera position offset to obtain the final coordinates in footprint frame
+  tf2::Vector3 vehicle_frame_point = ground_plane_ray + camera_transform_.getOrigin();
 
-  // TODO: Fill output point with the result of the projection
-  geometry_msgs::Point point;
+  // Fill output point with the result of the projection
+  pcl::PointXYZ point;
+  point.x = vehicle_frame_point.x();
+  point.y = vehicle_frame_point.y();
+  point.z = vehicle_frame_point.z();
   return point;
 }
 
@@ -246,11 +271,16 @@ bool LaneDetection::fitPoints(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, 
     }
   }
 
-  // TODO: Invert regression matrix with left pseudoinverse operation
+  // Invert regression matrix with left pseudoinverse operation
+  Eigen::MatrixXd pseudoinverse_matrix = (regression_matrix.transpose() * regression_matrix).inverse() * regression_matrix.transpose();
 
-  // TODO: Perform least squares estimation and obtain polynomial coefficients
+  // Perform least squares estimation and obtain polynomial coefficients
+  Eigen::VectorXd curve_fit_coefficients = pseudoinverse_matrix * y_samples;
 
-  // TODO: Populate 'poly_coeff' field of the 'curve' argument output
+  // Populate 'poly_coeff' field of the 'curve' argument output
+  for (int i = 0; i < curve_fit_coefficients.rows(); i++) {
+    curve.poly_coeff.push_back(curve_fit_coefficients(i));
+  }
 
   return true; // Successful curve fit!
 }
@@ -267,7 +297,9 @@ bool LaneDetection::checkCurve(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
     double y_hat = 0.0;
     double t = 1.0;
     for (size_t j = 0; j < curve.poly_coeff.size(); j++) {
-      // TODO: Add a term to y_hat for each coefficient in the polynomial
+      // Add a term to y_hat for each coefficient in the polynomial
+      y_hat += t * curve.poly_coeff[j];
+      t *= cloud->points[i].x;
     }
     new_error = cloud->points[i].y - y_hat;
     error_samples.push_back(new_error);

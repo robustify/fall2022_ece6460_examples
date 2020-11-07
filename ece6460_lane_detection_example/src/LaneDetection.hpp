@@ -52,7 +52,7 @@ class LaneDetection
     void detectWhite(const cv::Mat& sat_img, const cv::Mat& val_img, cv::Mat& white_bin_img);
     void detectYellow(const cv::Mat& hue_img, const cv::Mat& sat_img, cv::Mat& yellow_bin_img);
 
-    geometry_msgs::Point projectPoint(const image_geometry::PinholeCameraModel& model, const cv::Point2d& p);
+    pcl::PointXYZ projectPoint(const image_geometry::PinholeCameraModel& model, const cv::Point2d& p);
     bool fitPoints(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, int order, CurveFit& curve);
     bool checkCurve(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, const CurveFit& curve);
     void publishMarkers(const std::vector<CurveFit>& curves);    
@@ -73,6 +73,8 @@ class LaneDetection
     sensor_msgs::CameraInfo camera_info_;
     tf2::Transform camera_transform_; // Coordinate transformation from footprint to camera
     bool looked_up_camera_transform_;
+    // KD search tree object for use by PCL functions
+    pcl::search::Search<pcl::PointXYZ>::Ptr kd_tree_;
 };
 
 }
