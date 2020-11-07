@@ -32,6 +32,12 @@
 namespace ece6460_lane_detection_example
 {
 
+typedef struct {
+  std::vector<double> poly_coeff; // Coefficients of the polynomial
+  double min_x; // Minimum x value where polynomial is defined
+  double max_x; // Maximum x value where polynomial is defined
+} CurveFit;
+
 class LaneDetection
 {
   public:
@@ -47,7 +53,11 @@ class LaneDetection
     void detectYellow(const cv::Mat& hue_img, const cv::Mat& sat_img, cv::Mat& yellow_bin_img);
 
     geometry_msgs::Point projectPoint(const image_geometry::PinholeCameraModel& model, const cv::Point2d& p);
-    
+    bool fitPoints(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, int order, CurveFit& curve);
+    bool checkCurve(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, const CurveFit& curve);
+    void publishMarkers(const std::vector<CurveFit>& curves);    
+    void visualizePoints(const CurveFit& curve, std::vector<geometry_msgs::Point>& points);
+
     tf2_ros::TransformListener listener_;
     tf2_ros::Buffer buffer_;
 

@@ -88,10 +88,23 @@ void LaneDetection::recvImage(const sensor_msgs::ImageConstPtr& msg)
   // TODO: Use Euclidean clustering to group dashed lines together
   // and separate each distinct line into separate point clouds
 
-  // TODO: Construct polynomial curve fits to each cluster cloud
+  std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> cluster_clouds;
 
-  // TODO: Construct and publish Rviz marker output to visualize curve fit
+  // Construct polynomial curve fits to each cluster cloud
+  std::vector<CurveFit> curves;
+  for (size_t i = 0; i < cluster_clouds.size(); i++) {
+    CurveFit new_curve;
+    bool successful_fit = fitPoints(cluster_clouds[i], cfg_.fit_order, new_curve);
+    if (!successful_fit) {
+      continue;
+    }
 
+    // TODO: Check RMS fit error before adding curve fit to the output
+    curves.push_back(new_curve);
+  }
+
+  // Construct Rviz marker output to visualize curve fit
+  publishMarkers(curves);
 }
 
 void LaneDetection::segmentImage(const cv::Mat& raw_img, cv::Mat& bin_img)
@@ -193,6 +206,148 @@ geometry_msgs::Point LaneDetection::projectPoint(const image_geometry::PinholeCa
   // TODO: Fill output point with the result of the projection
   geometry_msgs::Point point;
   return point;
+}
+
+// This function inputs a PCL point cloud and applies a least squares curve fit
+// to the points which fits an optimal polynomial curve of the desired order
+bool LaneDetection::fitPoints(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, int order, CurveFit& curve)
+{
+  // Check if it is mathematically possible to fit a curve to the data
+  if (cloud->points.size() <= order) {
+    return false;
+  }
+
+  Eigen::MatrixXd regression_matrix(cloud->points.size(), order + 1);
+  Eigen::VectorXd y_samples(cloud->points.size());
+
+  curve.min_x = INFINITY;
+  curve.max_x = 0.0;
+  for (int i = 0; i < cloud->points.size(); i++) {
+    y_samples(i) = cloud->points[i].y;
+
+    // Fill in row of regression matrix
+    // [1, x, x^2, ..., x^N]
+    double tx = 1.0;
+    for (int j = 0; j <= order; j++) {
+      regression_matrix(i, j) = tx;
+      tx *= cloud->points[i].x;
+    }
+
+    // Compute the minimum value of x to constrain
+    // the polynomial curve
+    if (cloud->points[i].x < curve.min_x) {
+      curve.min_x = cloud->points[i].x;
+    }
+
+    // Compute the maximum value of x to constrain
+    // the polynomial curve
+    if (cloud->points[i].x > curve.max_x) {
+      curve.max_x = cloud->points[i].x;
+    }
+  }
+
+  // TODO: Invert regression matrix with left pseudoinverse operation
+
+  // TODO: Perform least squares estimation and obtain polynomial coefficients
+
+  // TODO: Populate 'poly_coeff' field of the 'curve' argument output
+
+  return true; // Successful curve fit!
+}
+
+bool LaneDetection::checkCurve(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, const CurveFit& curve)
+{
+  // Compute error between each sample point y and the expected value of y
+  std::vector<double> error_samples;
+  for (size_t i = 0; i < cloud->points.size(); i++) {
+    double new_error;
+
+    // Compute expected y value based on the order of the curve
+    // y = a0 + a1 * x + a2 * x^2 + ... + aM * x^M
+    double y_hat = 0.0;
+    double t = 1.0;
+    for (size_t j = 0; j < curve.poly_coeff.size(); j++) {
+      // TODO: Add a term to y_hat for each coefficient in the polynomial
+    }
+    new_error = cloud->points[i].y - y_hat;
+    error_samples.push_back(new_error);
+  }
+
+  // Compute mean squared error
+  double mean_square = 0;
+  for (size_t i = 0; i < cloud->points.size(); i++) {
+    mean_square += error_samples[i] * error_samples[i];
+  }
+  mean_square /= (double)cloud->points.size();
+
+  // RMS value is the square root of the mean squared error
+  double rms = sqrt(mean_square);
+
+  // Return boolean indicating success or failure
+  return rms < cfg_.rms_tolerance;
+}
+
+// This method samples a curve fit between its minimum and maximum valid values
+// and outputs an array of geometry_msgs::Point to put into a Rviz marker message
+void LaneDetection::visualizePoints(const CurveFit& curve, std::vector<geometry_msgs::Point>& points)
+{
+  points.clear();
+
+  // Sample points at 0.05 meter resolution
+  for (double x = curve.min_x; x <= curve.max_x; x += 0.05) {
+    geometry_msgs::Point p;
+    // Copy x value
+    p.x = x;
+
+    double t = 1.0;
+    for (size_t i = 0; i < curve.poly_coeff.size(); i++) {
+      p.y += curve.poly_coeff[i] * t;
+      t *= p.x;
+    }
+
+    points.push_back(p);
+  }
+}
+
+void LaneDetection::publishMarkers(const std::vector<CurveFit>& curves)
+{
+  visualization_msgs::MarkerArray marker_msg;
+  visualization_msgs::Marker viz_marker;
+  viz_marker.header.frame_id = "base_footprint";
+  viz_marker.header.stamp = ros::Time::now();
+  viz_marker.action = visualization_msgs::Marker::ADD;
+  viz_marker.pose.orientation.w = 1;
+  viz_marker.id = 0;
+
+  // Use the LINE_STRIP type to display a line connecting each point
+  viz_marker.type = visualization_msgs::Marker::LINE_STRIP;
+
+  // Red
+  viz_marker.color.a = 1.0;
+  viz_marker.color.r = 1.0;
+  viz_marker.color.g = 0.0;
+  viz_marker.color.b = 0.0;
+
+  // 0.1 meters thick line
+  viz_marker.scale.x = 0.1;
+
+  // Sample polynomial and add line strip marker to array
+  // for each separate cluster
+  for (auto& curve : curves) {
+    visualizePoints(curve, viz_marker.points);
+    marker_msg.markers.push_back(viz_marker);
+    viz_marker.id++;
+  }
+
+  // Delete markers to avoid ghost markers from lingering if
+  // the number of markers being published changes
+  visualization_msgs::MarkerArray delete_markers;
+  delete_markers.markers.resize(1);
+  delete_markers.markers[0].action = visualization_msgs::Marker::DELETEALL;
+  pub_markers_.publish(delete_markers);
+
+  // Publish for visualization
+  pub_markers_.publish(marker_msg);
 }
 
 void LaneDetection::recvCameraInfo(const sensor_msgs::CameraInfoConstPtr& msg)
