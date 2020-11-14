@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- Get clock from bag file -->
+  <param name="use_sim_time" value="true" />
+
+  <!-- This launch file is meant to be used with stereo_camera_example.bag -->
+  <arg name="camera_name" value="sensors/camera/flir/stereo/right" />
+
+  <group ns="$(arg camera_name)" >
+    <!-- Decompress image from bag file -->
+    <node pkg="image_transport" type="republish" name="republish" args="compressed in:=image_raw raw out:=image_raw" />
+    
+    <!-- Nodelet manager to connect all the processing stages together -->
+    <node pkg="nodelet" type="nodelet" name="camera_nodelet_manager" args="manager" output="screen" />
+
+    <!-- This nodelet inputs image_raw, applies the de-Bayer algorithm and outputs image_color -->
+    <node pkg="nodelet" type="nodelet" name="image_proc_debayer" args="load image_proc/debayer camera_nodelet_manager" />
+
+    <!-- 
+    This nodelet applies the lens distortion model from CameraInfo messages to the image_mono topic and outputs
+    the rectified image to image_rect
+    
+    In our application here, we want to apply the lens distortion model to image_color coming out of the debayer nodelet,
+    so we remap the image_mono input to image_color
+    -->
+    <node pkg="nodelet" type="nodelet" name="image_proc_rectify" args="load image_proc/rectify camera_nodelet_manager" >
+      <remap from="image_mono" to="image_color" />
+    </node>
+    
+  </group>
+
+</launch>

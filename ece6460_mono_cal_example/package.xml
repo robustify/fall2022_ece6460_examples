@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>ece6460_mono_cal_example</name>
+  <version>0.0.0</version>
+  <description>
+    Demonstration of how to set up and calibrate a monocular camera in ROS
+  </description>
+  <maintainer email="mtradovn@oakland.edu">Micho Radovnikovich</maintainer>
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <exec_depend>roslaunch</exec_depend>
+
+</package>
