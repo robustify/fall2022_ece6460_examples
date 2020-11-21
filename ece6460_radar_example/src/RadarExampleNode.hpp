@@ -6,6 +6,7 @@
 #include <ros/ros.h>
 
 // ROS message headers
+#include <geometry_msgs/TwistStamped.h>
 #include <conti_radar_msgs/RadarObjectArray.h>
 #include <avs_lecture_msgs/TrackedObjectArray.h>
 
@@ -23,12 +24,16 @@ namespace ece6460_radar_example {
     private:
       void reconfig(RadarExampleConfig& config, uint32_t level);
       void recvRawObjects(const conti_radar_msgs::RadarObjectArrayConstPtr& msg);
+      void recvTwist(const geometry_msgs::TwistStampedConstPtr& msg);
 
       ros::Subscriber sub_raw_objects_;
+      ros::Subscriber sub_twist_;
       ros::Publisher pub_filtered_objects_;
 
       dynamic_reconfigure::Server<RadarExampleConfig> srv_;
       RadarExampleConfig cfg_;
+
+      double vehicle_speed_;
   };
 
 }

@@ -5,7 +5,9 @@
   <param name="use_sim_time" value="true" />
 
   <!-- Example node -->
-  <node pkg="ece6460_radar_example" type="radar_example_node" name="radar_example_node" output="screen" />
+  <node pkg="ece6460_radar_example" type="radar_example_node" name="radar_example_node" output="screen" >
+    <remap from="twist" to="/vehicle/twist" />
+  </node>
 
   <!-- RADAR driver node that parses CAN messages and outputs raw objects -->
   <param name="radar_name" value="lrr" />

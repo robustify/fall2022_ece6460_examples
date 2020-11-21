@@ -9,10 +9,16 @@ namespace ece6460_radar_example {
   {
     // Set up publishers and subscribers
     sub_raw_objects_ = n.subscribe("radar_objects", 1, &RadarExampleNode::recvRawObjects, this);
+    sub_twist_ = n.subscribe("twist", 1, &RadarExampleNode::recvTwist, this);
     pub_filtered_objects_ = n.advertise<avs_lecture_msgs::TrackedObjectArray>("filtered_radar_objects", 1);
 
     // Initialize dynamic reconfigure server and bind its callback
     srv_.setCallback(boost::bind(&RadarExampleNode::reconfig, this, _1, _2));
+  }
+
+  void RadarExampleNode::recvTwist(const geometry_msgs::TwistStampedConstPtr& msg)
+  {
+    vehicle_speed_ = msg->twist.linear.x;
   }
 
   void RadarExampleNode::recvRawObjects(const conti_radar_msgs::RadarObjectArrayConstPtr& msg)
@@ -28,13 +34,20 @@ namespace ece6460_radar_example {
     detected_object_msg.header.frame_id = msg->objects[0].header.frame_id;
 
     for (auto obj : msg->objects) {
-      // TODO: Add vehicle speed to the current object's x velocity and skip it
+      // Add vehicle speed to the current object's x velocity and skip it
       // if the resulting velocity is small
+      if (cfg_.filter_objects) {
+        double compensated_x_vel = obj.velocity.x + vehicle_speed_;
+
+        if (std::abs(compensated_x_vel) < cfg_.vel_thres) {
+          continue;
+        }
+      }
 
       // Use RADAR data to build a TrackedObject structure
       avs_lecture_msgs::TrackedObject detected_object;
       detected_object.header = obj.header;
-      detected_object.pose.position.x = obj.position.x;
+      detected_object.pose.position.x = obj.position.x + 0.5 * obj.dimensions.x;
       detected_object.pose.position.y = obj.position.y;
       detected_object.pose.position.z = obj.position.z;
       detected_object.pose.orientation.w = cos(0.5 * obj.orientation_angle);
