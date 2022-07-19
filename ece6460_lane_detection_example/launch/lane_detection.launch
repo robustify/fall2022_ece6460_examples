@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<launch>
+
+  <group ns="front_camera" >
+    <!-- Process raw camera image and apply lens rectification -->
+    <node pkg="image_proc" type="image_proc" name="image_proc" />
+
+    <!-- Example node -->
+    <node pkg="ece6460_lane_detection_example" type="lane_detection_example" name="lane_detection" output="screen" />
+  </group>
+
+  <!-- Gazebo simulation -->
+  <arg name="headless" default="false" />
+  <include file="$(find dataspeed_dbw_gazebo)/launch/dataspeed_dbw_gazebo.launch" >
+    <arg name="sim_param_file" value="$(find avs_lecture_launch)/yaml/lane_keep_world_sim_params.yaml" />
+    <arg name="world_name" value="$(find avs_lecture_gazebo)/worlds/lane_keep_world.world" />
+    <arg name="headless" value="$(arg headless)" />
+  </include>
+
+  <!-- Rviz -->
+  <node pkg="rviz" type="rviz" name="lane_detection_viz" args="-d $(find ece6460_lane_detection_example)/rviz/lane_detection.rviz" />
+  
+</launch>
