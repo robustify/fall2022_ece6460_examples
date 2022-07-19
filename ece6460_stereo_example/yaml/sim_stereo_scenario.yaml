@@ -1,0 +1,32 @@
+# Bezier maps file
+route_map_package: avs_lecture_launch
+route_map_file: yaml/sim_world1_route_map.yaml
+
+gazebo: true
+map_center_lat: 45.0
+map_center_lon: -81.0
+
+# For Autoware bridge
+path_resolution: 0.5
+preview_dist: 30.0
+odom_topic: /vehicle/perfect_gps/odom
+ego_route_sequence:
+  - { 'node_id': 0 }
+  - { 'node_id': 13, 'speed_limit': 15.0 }
+  - { 'node_id': 36 }
+  - { 'node_id': 1 }
+
+# Configure traffic vehicles
+traffic_vehicles:
+  - traffic1:
+      start_dist: 30.0
+      route_sequence:
+        - { 'node_id': 13 }
+        - { 'node_id': 41, 'speed_limit': 15.0 }
+  - traffic2:
+      start_dist: 50.0
+      route_sequence:
+        - { 'node_id': 25 }
+        - { 'node_id': 15, 'speed_limit': 15.0 }
+        - { 'node_id': 58, 'speed_limit': 10.0 }
+

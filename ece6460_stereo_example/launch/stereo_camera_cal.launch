@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- This launch file decompresses and publishes the raw image from a bag file and runs the calibration program -->
+  
+  <!-- Get clock from bag file -->
+  <param name="use_sim_time" value="true" />
+
+  <!-- Camera name should be the topic prefix for the stereo image topics.
+         In camera_cal_data.bag, the two images are called /stereo/left/image_raw and /stereo/right/image_raw
+         In this case, the topic prefix is just 'stereo'
+  -->
+  <arg name="camera_name" value="stereo" />
+  
+  <group ns="$(arg camera_name)" >
+    <!-- Decompress images from bag file -->
+    <node pkg="image_transport" type="republish" name="republish_left" args="compressed in:=left/image_raw raw out:=left/image_raw" />
+    <node pkg="image_transport" type="republish" name="republish_right" args="compressed in:=right/image_raw raw out:=right/image_raw" />
+
+    <!-- Checkerboard calibration program -->
+    <node pkg="camera_calibration" type="cameracalibrator.py" name="calibrator" args="--size 8x6 --square 0.0624 --approximate 0.005 --no-service-check" output="screen" >
+      <remap from="left" to="left/image_raw" />
+      <remap from="right" to="right/image_raw" />
+    </node>
+  </group>
+
+</launch>

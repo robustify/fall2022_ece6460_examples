@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- Gazebo simulation -->
+  <arg name="gazebo_scenario" default="$(find ece6460_stereo_example)/yaml/sim_stereo_scenario.yaml" />
+  <include file="$(find dataspeed_dbw_gazebo)/launch/dataspeed_dbw_gazebo.launch" >
+    <arg name="sim_param_file" value="$(find ece6460_stereo_example)/yaml/sim_params.yaml" />
+    <arg name="world_name" value="$(find avs_lecture_gazebo)/worlds/sim_world1.world" />
+    <arg name="headless" value="false" />
+  </include>
+  <include file="$(find avs_lecture_launch)/launch/spawn_traffic.launch" >
+    <arg name="gazebo_scenario" value="$(arg gazebo_scenario)" />
+  </include>
+
+  <!-- Stereo camera processing -->
+  <node ns="stereo" pkg="stereo_image_proc" type="stereo_image_proc" name="stereo_image_proc" output="screen" />
+
+  <!-- Dataspeed ROS Driver -->
+  <include file="$(find dbw_mkz_can)/launch/dbw.launch" >
+    <arg name="live" value="false"/>
+    <arg name="can_ns" value="can_bus_dbw" />
+    <arg name="load_urdf" value="false" />
+  </include>
+
+  <!-- Enable drive-by-wire control automatically when simulation starts -->
+  <node pkg="rostopic" type="rostopic" name="enable_dbw" args="pub /vehicle/enable std_msgs/Empty -1" output="screen" />
+
+  <!-- Autonomy stack -->
+  <include file="$(find avs_lecture_maps)/launch/route_following.launch" >
+    <arg name="scenario_file" value="$(arg gazebo_scenario)" />
+  </include>
+
+  <!-- LIDAR Euclidean clustering -->
+  <include file="$(find avs_lecture_sensor_config)/launch/euclidean_clustering.launch" >
+    <arg name="raw_points_topic" value="/cepton/points_raw" />
+  </include>
+
+  <!-- Visualize -->
+  <node pkg="avs_lecture_maps" type="gps_frame_management.py" name="gps_frame_management" >
+    <rosparam file="$(arg gazebo_scenario)" />
+  </node>
+  <arg name="rviz" default="true" />
+  <node if="$(arg rviz)" pkg="rviz" type="rviz" name="perception_viz" args="-d $(find ece6460_stereo_example)/rviz/sim_config.rviz" />
+
+</launch>

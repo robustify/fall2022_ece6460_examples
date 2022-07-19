@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- Get clock from bag file -->
+  <param name="use_sim_time" value="true" />
+
+  <!-- This launch file is meant to be used with stereo_camera_example.bag -->
+  <arg name="camera_name" default="sensors/camera/flir/stereo" />
+
+  <group ns="$(arg camera_name)">
+
+    <!-- Decompress bag file images -->
+    <node pkg="image_transport" type="republish" name="republish_left" args="compressed in:=left/image_raw raw out:=left/image_raw" />
+    <node pkg="image_transport" type="republish" name="republish_right" args="compressed in:=right/image_raw raw out:=right/image_raw" />
+
+    <!-- The stereo_image_proc node applies debayer, rectification, and stereo matching -->
+    <node pkg="stereo_image_proc" type="stereo_image_proc" name="stereo_image_proc" >
+      <param name="prefilter_size" value="9" />
+      <param name="prefilter_cap" value="31" />
+
+      <param name="correlation_window_size" value="15" />
+      <param name="min_disparity" value="0" />
+      <param name="disparity_range" value="64" />
+      
+      <param name="uniqueness_ratio" value="15.0" />
+      <param name="texture_threshold" value="10" />
+      <param name="speckle_size" value="270" />
+      <param name="speckle_range" value="4" />
+
+      <param name="approximate_sync" value="true" />
+      <param name="queue_size" value="5" />
+    </node>
+
+  </group>
+
+  <!-- Run stereo camera viewer -->
+  <node pkg="image_view" type="stereo_view" name="stereo_view" >
+    <param name="approximate_sync" value="true" />
+    <remap from="stereo" to="$(arg camera_name)" />
+    <remap from="image" to="image_rect_color" />
+  </node>
+
+  <!-- TF frames to visualize point cloud in Rviz properly -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="footprint_to_left" args="2.0 0.2 1.2 0.0698 -0.04363 0.03 base_footprint stereo_left" />
+  <node pkg="tf2_ros" type="static_transform_publisher" name="left_to_optical" args="0.0 0.0 0.0 -1.5707 0.0 -1.5707 stereo_left stereo_left_optical" />
+
+  <!-- TF frame to visualize Cepton LIDAR data aligned with stereo point cloud for comparison -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="footprint_to_cepton" args="3.5 0.0 0.55 -1.5707 0.0 -0.03 base_footprint cepton_0" />
+
+  <!-- Point cloud segmentation and tracking -->
+  <node pkg="avs_lecture_lidar_seg" type="lidar_segmentation" name="stereo_cloud_seg" output="screen" >
+    <remap from="points" to="/sensors/camera/flir/stereo/points2" />
+    <remap from="detected_objects" to="stereo_objects" />
+
+    <param name="target_frame" value="base_footprint" />
+    <param name="z_min" value="0.0" />
+  </node>
+
+  <node pkg="avs_lecture_lidar_seg" type="lidar_segmentation" name="lidar_seg" output="screen" >
+    <remap from="points" to="/sensors/lidar/cepton/points" />
+    <param name="target_frame" value="base_footprint" />
+    <remap from="detected_objects" to="lidar_objects" />
+  </node>
+
+  <!-- Rviz -->
+  <node pkg="rviz" type="rviz" name="stereo_point_cloud_viz" args="-d $(find ece6460_stereo_example)/rviz/rviz_config.rviz" />
+
+</launch>

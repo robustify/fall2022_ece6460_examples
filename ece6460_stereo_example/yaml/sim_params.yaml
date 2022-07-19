@@ -1,0 +1,11 @@
+- vehicle:
+    x: 193.1
+    y: 468.8
+    z: 0.0
+    yaw: -1.5707
+    start_gear: D
+    urdf_package: ece6460_stereo_example
+    urdf_path: urdf/vehicle_model.urdf.xacro
+    pub_odom: true
+    model: mondeo
+    color: white
