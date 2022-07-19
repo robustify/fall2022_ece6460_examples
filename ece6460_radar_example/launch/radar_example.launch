@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- Get clock from bag file -->
+  <param name="use_sim_time" value="true" />
+
+  <!-- Example node -->
+  <node pkg="ece6460_radar_example" type="radar_example_node" name="radar_example_node" output="screen" />
+
+  <!-- RADAR driver node that parses CAN messages and outputs raw objects -->
+  <param name="radar_name" value="lrr" />
+  <node pkg="conti_radar_can" type="conti_radar_node" name="conti_radar" output="screen" >
+    <remap from="can_tx" to="/can_bus_lrr/can_tx" />
+    <remap from="can_rx" to="/can_bus_lrr/can_rx" />
+    <remap from="raw_objects" to="radar_objects" />
+  </node>
+
+  <!-- TF tree to visualize sensor data in a common reference frame -->
+  <node pkg="avs_lecture_sensor_config" type="sensor_tf_pub.py" name="sensor_tf_pub" output="screen" >
+    <rosparam file="$(find dataset_playback)/yaml/sensor_tf_config.yaml" />
+  </node>
+
+  <!-- Point cloud segmentation and tracking to compare to RADAR data (you can replace homework3 node here) -->
+  <node pkg="avs_lecture_lidar_seg" type="lidar_segmentation" name="lidar_segmentation" output="screen" >
+    <remap from="points" to="/sensors/lidar/cepton/points" />
+    <param name="target_frame" value="base_footprint" />
+  </node>
+
+  <!-- Load and process right stereo camera for visualization purposes only -->
+  <group ns="sensors/camera/flir/stereo/right" >
+    <node pkg="image_transport" type="republish" name="republish_image" args="compressed in:=image_raw raw out:=image_raw" />
+    <node pkg="image_proc" type="image_proc" name="image_proc" />
+  </group>
+
+  <!-- Drive-by-wire system to parse Dataspeed CAN messages to extract vehicle speed measurement -->
+  <include file="$(find dbw_mkz_can)/launch/dbw.launch" >
+    <arg name="live" value="false"/>
+    <arg name="can_ns" value="/can_bus_dbw" />
+    <arg name="load_urdf" value="true" />
+  </include>
+
+  <!-- Rviz -->
+  <node pkg="rviz" type="rviz" name="stereo_point_cloud_viz" args="-d $(find ece6460_radar_example)/rviz/rviz_config.rviz" />
+
+</launch>
